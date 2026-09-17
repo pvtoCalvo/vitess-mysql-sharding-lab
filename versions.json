@@ -1,0 +1,9 @@
+{
+  "verified_at": "2026-09-17",
+  "vitess": "v24.0.3",
+  "operator": "v2.17.1",
+  "kubernetes": "v1.35.0",
+  "upstream": "https://github.com/vitessio/vitess/tree/v24.0.3/examples/operator",
+  "operator_upstream_sha256": "7f3b765eb01c43b5972f045b797f21efa9c784b76b489f7ba2b0e857becdb09f",
+  "operator_sha256": "abb43272dc8cd75a69407d2992186ca74386415d3512bce359981923d3c5ea3e"
+}

@@ -1,0 +1,12 @@
+Vitess MySQL Sharding Lab (2026)
+
+Los archivos k8s/operator.yaml y k8s/01-initial.yaml a k8s/04-final.yaml
+se basan en examples/operator de vitessio/vitess, tag v24.0.3.
+Copyright The Vitess Authors. Licencia Apache License, Version 2.0.
+Fuente: https://github.com/vitessio/vitess/tree/v24.0.3/examples/operator
+
+Modificaciones: namespace vitess-lab, namespaces explícitos del operador,
+WATCH_NAMESPACE y RBAC correspondientes, VTAdmin de solo lectura,
+configuración explícita de VTOrc para los keyspaces.
+Los esquemas y el recorrido didáctico siguen los conceptos del ejemplo oficial.
+El artículo, la herramienta de laboratorio y las validaciones son nuevos.
