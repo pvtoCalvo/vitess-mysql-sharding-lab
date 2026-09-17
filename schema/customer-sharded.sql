@@ -1,0 +1,2 @@
+ALTER TABLE customer MODIFY customer_id BIGINT NOT NULL;
+ALTER TABLE corder MODIFY order_id BIGINT NOT NULL;
