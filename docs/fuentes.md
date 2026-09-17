@@ -17,7 +17,7 @@ Consulta realizada el 17 de septiembre de 2026. Se priorizan releases, código y
 | Sintaxis de Reshard | [Referencia Reshard](https://vitess.io/docs/24.0/reference/programs/vtctldclient/vtctldclient_reshard/) |
 | Formato JSON exacto de VDiff | [vdiff.go, tag v24.0.3](https://github.com/vitessio/vitess/blob/v24.0.3/go/cmd/vtctldclient/command/vreplication/vdiff/vdiff.go) |
 | Vindexes | [Referencia Vindexes](https://vitess.io/docs/24.0/reference/features/vindexes/) |
-| Transición de CLI | [vtctldclient](https://vitess.io/docs/24.0/reference/vtctldclient/) |
+| Transición de CLI | [vtctldclient](https://vitess.io/docs/24.0/reference/vtctldclient-transition/) |
 
 Las etiquetas de contenedor se comprobaron mediante la API pública de Docker Hub: `vitess/lite:v24.0.3`, `vitess/vtadmin:v24.0.3` y `planetscale/vitess-operator:v2.17.1` ofrecían `linux/amd64`. Los tags son explícitos, aunque no se han fijado por digest. `versions.json` conserva el SHA-256 del manifiesto del operador original y de nuestra adaptación.
 
