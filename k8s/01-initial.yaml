@@ -1,0 +1,169 @@
+# Laboratorio local. Adaptado del ejemplo oficial v24.0.3 (Apache-2.0).
+apiVersion: planetscale.com/v2
+kind: VitessCluster
+metadata:
+  name: example
+  namespace: vitess-lab
+spec:
+  backup:
+    engine: xtrabackup
+    locations:
+    - volume:
+        hostPath:
+          path: /tmp
+          type: Directory
+  images:
+    vtctld: vitess/lite:v24.0.3
+    vtadmin: vitess/vtadmin:v24.0.3
+    vtgate: vitess/lite:v24.0.3
+    vttablet: vitess/lite:v24.0.3
+    vtbackup: vitess/lite:v24.0.3
+    vtorc: vitess/lite:v24.0.3
+    mysqld:
+      mysql80Compatible: vitess/lite:v24.0.3
+    mysqldExporter: prom/mysqld-exporter:v0.14.0
+  cells:
+  - name: zone1
+    gateway:
+      authentication:
+        static:
+          secret:
+            name: example-cluster-config
+            key: users.json
+      replicas: 1
+      extraFlags:
+        log-format: text
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 256Mi
+  vitessDashboard:
+    cells:
+    - zone1
+    extraFlags:
+      security-policy: read-only
+      log-format: text
+    replicas: 1
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  vtadmin:
+    rbac:
+      name: example-cluster-config
+      key: rbac.yaml
+    cells:
+    - zone1
+    apiAddresses:
+    - http://localhost:14001
+    replicas: 1
+    readOnly: true
+    apiResources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    webResources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  keyspaces:
+  - name: commerce
+    durabilityPolicy: none
+    turndownPolicy: Immediate
+    vitessOrchestrator:
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      extraFlags:
+        instance-poll-time: 1s
+        log-format: text
+    partitionings:
+    - equal:
+        parts: 1
+        shardTemplate:
+          databaseInitScriptSecret:
+            name: example-cluster-config
+            key: init_db.sql
+          tabletPools:
+          - cell: zone1
+            type: replica
+            replicas: 2
+            vttablet:
+              extraFlags:
+                db-charset: utf8mb4
+                log-format: text
+              resources:
+                limits:
+                  memory: 256Mi
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+            mysqld:
+              resources:
+                limits:
+                  memory: 1024Mi
+                requests:
+                  cpu: 100m
+                  memory: 512Mi
+            dataVolumeClaimTemplate:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+  updateStrategy:
+    type: Immediate
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-cluster-config
+  namespace: vitess-lab
+type: Opaque
+stringData:
+  users.json: "{\n  \"user\": [{\n    \"UserData\": \"user\",\n    \"Password\": \"\"\n  }]\n}\n"
+  init_db.sql: "# This file is executed immediately after mysql_install_db,\n# to initialize a fresh data directory.\n\
+    \n###############################################################################\n# Equivalent of mysql_secure_installation\n\
+    ###############################################################################\n# We need to ensure that super_read_only\
+    \ is disabled so that we can execute\n# these commands. Note that disabling it does NOT disable read_only.\n\
+    # We save the current value so that we only re-enable it at the end if it was\n# enabled before.\nSET @original_super_read_only=IF(@@global.super_read_only=1,\
+    \ 'ON', 'OFF');\nSET GLOBAL super_read_only='OFF';\n\n# Changes during the init db should not make it to the\
+    \ binlog.\n# They could potentially create errant transactions on replicas.\nSET sql_log_bin = 0;\n# Remove\
+    \ anonymous users & disable remote root access (only allow UNIX socket).\nDROP USER IF EXISTS ''@'%', ''@'localhost',\
+    \ 'root'@'%';\n\n# Remove test database.\nDROP DATABASE IF EXISTS test;\n\n###############################################################################\n\
+    # Vitess defaults\n###############################################################################\n\n# Admin\
+    \ user with all privileges.\nCREATE USER 'vt_dba'@'localhost';\nGRANT ALL ON *.* TO 'vt_dba'@'localhost';\n\
+    GRANT GRANT OPTION ON *.* TO 'vt_dba'@'localhost';\nGRANT PROXY ON ''@'' TO 'vt_dba'@'localhost' WITH GRANT\
+    \ OPTION;\n\n# User for app traffic, with global read-write access.\nCREATE USER 'vt_app'@'localhost';\nGRANT\
+    \ SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, PROCESS, FILE,\n  REFERENCES, INDEX, ALTER, SHOW DATABASES,\
+    \ CREATE TEMPORARY TABLES,\n  LOCK TABLES, EXECUTE, REPLICATION CLIENT, CREATE VIEW,\n  SHOW VIEW, CREATE ROUTINE,\
+    \ ALTER ROUTINE, CREATE USER, EVENT, TRIGGER\n  ON *.* TO 'vt_app'@'localhost';\n\n# User for app debug traffic,\
+    \ with global read access.\nCREATE USER 'vt_appdebug'@'localhost';\nGRANT SELECT, SHOW DATABASES, PROCESS ON\
+    \ *.* TO 'vt_appdebug'@'localhost';\n\n# User for administrative operations that need to be executed as non-SUPER.\n\
+    # Same permissions as vt_app here.\nCREATE USER 'vt_allprivs'@'localhost';\nGRANT SELECT, INSERT, UPDATE, DELETE,\
+    \ CREATE, DROP, RELOAD, PROCESS, FILE,\n  REFERENCES, INDEX, ALTER, SHOW DATABASES, CREATE TEMPORARY TABLES,\n\
+    \  LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW,\n  SHOW VIEW, CREATE ROUTINE, ALTER\
+    \ ROUTINE, CREATE USER, EVENT, TRIGGER\n  ON *.* TO 'vt_allprivs'@'localhost';\n\n# User for slave replication\
+    \ connections.\nCREATE USER 'vt_repl'@'%';\nGRANT REPLICATION SLAVE ON *.* TO 'vt_repl'@'%';\n\n# User for Vitess\
+    \ VReplication (base vstreamers and vplayer).\nCREATE USER 'vt_filtered'@'localhost';\nGRANT SELECT, INSERT,\
+    \ UPDATE, DELETE, CREATE, DROP, RELOAD, PROCESS, FILE,\n  REFERENCES, INDEX, ALTER, SHOW DATABASES, CREATE TEMPORARY\
+    \ TABLES,\n  LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW,\n  SHOW VIEW, CREATE\
+    \ ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER\n  ON *.* TO 'vt_filtered'@'localhost';\n\n# User for\
+    \ general MySQL monitoring.\nCREATE USER 'vt_monitoring'@'localhost';\nGRANT SELECT, PROCESS, SUPER, REPLICATION\
+    \ CLIENT, RELOAD\nON *.* TO 'vt_monitoring'@'localhost';\nGRANT SELECT, UPDATE, DELETE, DROP\nON performance_schema.*\
+    \ TO 'vt_monitoring'@'localhost';\n\n# custom sql is used to add custom scripts like creating users/passwords.\
+    \ We use it in our tests\n# {{custom_sql}}\n\n# We need to set super_read_only back to what it was before\n\
+    SET GLOBAL super_read_only=IFNULL(@original_super_read_only, 'ON');\n"
+  rbac.yaml: "rules:\n- resource: \"*\"\n  actions: [\"get\", \"ping\"]\n  subjects: [\"*\"]\n  clusters: [\"*\"\
+    ]\n"
